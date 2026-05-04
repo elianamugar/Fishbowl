@@ -252,6 +252,13 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
 );
 });
 
+function requireLogin(req, res, next) {
+  if (!req.session || !req.session.userId) {
+    return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  }
+  next();
+}
+
 function requireAdmin(req, res, next) {
   const id = req.params.id;
   const userId = req.session && req.session.userId;
@@ -504,7 +511,7 @@ app.post('/fishbowls/:id(\\d+)/delete', requireAdmin, (req, res) => {
 });
 
 // Public members list for a community
-app.get('/fishbowls/:id(\\d+)/members', (req, res) => {
+app.get('/fishbowls/:id(\\d+)/members', requireMember, (req, res) => {
   const id = req.params.id;
   const q = (req.query.q || '').trim();
   const page = Math.max(1, parseInt(req.query.page || '1', 10) || 1);
@@ -576,7 +583,7 @@ app.get('/fishbowls/:id(\\d+)/members', (req, res) => {
 });
 
 // API endpoint for live search (returns JSON)
-app.get('/api/fishbowls/:id(\\d+)/members', (req, res) => {
+app.get('/api/fishbowls/:id(\\d+)/members', requireMember, (req, res) => {
   const id = req.params.id;
   const q = (req.query.q || '').trim();
   const roleFilter = (req.query.role || '').trim();
