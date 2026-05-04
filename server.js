@@ -106,23 +106,17 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
   const id = req.params.id;
   const currentUserId = req.session && req.session.userId;
 
-  const isSiteAdmin = user && SITE_ADMINS.includes(user.name);
-
-    const isAdmin = !!(
-    isSiteAdmin ||
-    (
-        membership &&
-        (membership.is_admin === 1 || membership.role === 'admin')
-    )
-    );
-
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err) return res.status(500).send('DB error');
     if (!community) return res.status(404).send('Bowl not found');
 
+    // 🔑 get current user (this defines currentUser)
     db.get('SELECT id, name FROM users WHERE id = ?', [currentUserId], (errUser, currentUser) => {
       if (errUser) return res.status(500).send('DB error');
 
+      const isSiteAdmin = currentUser && SITE_ADMINS.includes(currentUser.name);
+
+      // 🔑 check membership admin
       db.get(
         'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
         [currentUserId, id],
@@ -130,10 +124,11 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
           if (errAdmin) return res.status(500).send('DB error');
 
           const isAdmin = !!(
-            membership &&
-            (membership.is_admin === 1 || membership.role === 'admin')
+            isSiteAdmin ||
+            (membership && (membership.is_admin === 1 || membership.role === 'admin'))
           );
 
+          // 🔑 fetch posts
           db.all(
             `
             SELECT posts.*, users.name AS author_name
@@ -146,10 +141,11 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
             (errPosts, posts) => {
               if (errPosts) return res.status(500).send('DB error');
 
-              const renderCommunity = () => {
+              // 🔁 final render function
+              function renderCommunity() {
                 const groups = {};
 
-                posts.forEach((p) => {
+                posts.forEach(p => {
                   const label = new Date(p.created_at).toLocaleString('default', {
                     month: 'long',
                     year: 'numeric'
@@ -165,9 +161,9 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
                   isAdmin,
                   currentUser: currentUser || null
                 });
-              };
+              }
 
-              const postIds = posts.map((p) => p.id);
+              const postIds = posts.map(p => p.id);
 
               if (postIds.length === 0) {
                 return renderCommunity();
@@ -175,6 +171,7 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
 
               const placeholders = postIds.map(() => '?').join(',');
 
+              // 🔑 fetch comments
               db.all(
                 `
                 SELECT comments.*, users.name AS commenter_name
@@ -187,8 +184,8 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
                 (errComments, comments) => {
                   if (errComments) return res.status(500).send('DB error');
 
-                  posts.forEach((post) => {
-                    post.comments = comments.filter((comment) => comment.post_id === post.id);
+                  posts.forEach(post => {
+                    post.comments = comments.filter(c => c.post_id === post.id);
                   });
 
                   return renderCommunity();
@@ -254,24 +251,33 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
 
 function requireAdmin(req, res, next) {
   const id = req.params.id;
-  const userId = req.session.userId;
+  const userId = req.session && req.session.userId;
 
-  if (!userId) return res.redirect(`/login?next=/fishbowls/${id}/new-post`);
+  if (!userId) {
+    return res.redirect(`/login?next=/fishbowls/${id}`);
+  }
 
-  db.get('SELECT * FROM users WHERE id = ?', [userId], (errUser, user) => {
+  // 🔑 Get user (this defines `user`)
+  db.get('SELECT id, name FROM users WHERE id = ?', [userId], (errUser, user) => {
     if (errUser) return res.status(500).send('DB error');
 
-    if (user && SITE_ADMINS.includes(user.name)) {
+    // 🔑 Site admin check
+    const isSiteAdmin = user && SITE_ADMINS.includes(user.name);
+
+    if (isSiteAdmin) {
       return next();
     }
 
+    // 🔑 Fishbowl admin check
     db.get(
       'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
       [userId, id],
       (err, row) => {
         if (err) return res.status(500).send('DB error');
 
-        if (row && (row.is_admin === 1 || row.role === 'admin')) {
+        const isAdmin = row && (row.is_admin === 1 || row.role === 'admin');
+
+        if (isAdmin) {
           return next();
         }
 
