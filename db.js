@@ -4,6 +4,14 @@ const dbPath = path.join(__dirname, 'data.db');
 
 const db = new sqlite3.Database(dbPath);
 
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,7 +22,8 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS communities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    description TEXT
+    description TEXT,
+    slug TEXT UNIQUE
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS memberships (
@@ -118,6 +127,16 @@ db.all("PRAGMA table_info('posts')", (errP, colsP) => {
     db.run("ALTER TABLE posts ADD COLUMN user_id INTEGER", (e) => {
       if (e) console.error('Failed to add user_id column to posts:', e);
     });
+  }
+});
+
+db.all("PRAGMA table_info('communities')", (err, cols) => {
+  if (err) return console.error(err);
+
+  const hasSlug = cols && cols.some(c => c.name === 'slug');
+
+  if (!hasSlug) {
+    db.run("ALTER TABLE communities ADD COLUMN slug TEXT");
   }
 });
 

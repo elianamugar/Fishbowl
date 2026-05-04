@@ -66,6 +66,22 @@ app.post('/fishbowls', (req, res) => {
   const userId = req.session && req.session.userId;
   if (!userId) return res.redirect('/login?next=/fishbowls/new');
   const name = (req.body.name || '').trim();
+  const baseSlug = slugify(name);
+  
+  makeUniqueSlug(baseSlug, (errSlug, slug) => {
+    if (errSlug) return res.status(500).send('DB error');
+
+  db.run(
+    'UPDATE communities SET name = ?, slug = ?, description = ? WHERE id = ?',
+    [name, slug, description, id],
+    function (err) {
+      if (err) return res.status(500).send('DB error');
+
+      res.redirect(`/fishbowls/${slug}`);
+    }
+  );
+});
+
   const description = (req.body.description || '').trim();
   if (!name) {
     req.session.old = { name, description };
@@ -82,14 +98,14 @@ app.post('/fishbowls', (req, res) => {
       return res.redirect('/fishbowls/new');
     }
 
-    db.run('INSERT INTO communities (name, description) VALUES (?, ?)', [name, description], function(err) {
+    db.run('INSERT INTO communities (name, slug, description) VALUES (?, ?, ?)', [name, slug, description], function(err) {
       if (err) return res.status(500).send('DB error');
       const communityId = this.lastID;
       // add membership for creator as admin
       db.run('INSERT INTO memberships (user_id, community_id, is_admin, role) VALUES (?, ?, 1, "admin")', [userId, communityId], (e) => {
         if (e) console.error('Failed to create membership for creator', e);
         req.flash('success', 'Fishbowl created. You are the admin.');
-        res.redirect(`/fishbowls/${communityId}`);
+        res.redirect(`/fishbowls/${slug}`);
       });
     });
   });
@@ -102,105 +118,6 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/fishbowls/:id(\\d+)', (req, res) => {
-  const id = req.params.id;
-  const currentUserId = req.session && req.session.userId;
-
-  db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
-    if (err) return res.status(500).send('DB error');
-    if (!community) return res.status(404).send('Bowl not found');
-
-    // 🔑 get current user (this defines currentUser)
-    db.get('SELECT id, name FROM users WHERE id = ?', [currentUserId], (errUser, currentUser) => {
-      if (errUser) return res.status(500).send('DB error');
-
-      const isSiteAdmin = currentUser && SITE_ADMINS.includes(currentUser.name);
-
-      // 🔑 check membership admin
-      db.get(
-        'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
-        [currentUserId, id],
-        (errAdmin, membership) => {
-          if (errAdmin) return res.status(500).send('DB error');
-
-          const isAdmin = !!(
-            isSiteAdmin ||
-            (membership && (membership.is_admin === 1 || membership.role === 'admin'))
-          );
-
-          const isMember = !!membership || isSiteAdmin;
-
-          // 🔑 fetch posts
-          db.all(
-            `
-            SELECT posts.*, users.name AS author_name
-            FROM posts
-            LEFT JOIN users ON users.id = posts.user_id
-            WHERE posts.community_id = ?
-            ORDER BY posts.created_at DESC
-            `,
-            [id],
-            (errPosts, posts) => {
-              if (errPosts) return res.status(500).send('DB error');
-
-              // 🔁 final render function
-              function renderCommunity() {
-                const groups = {};
-
-                posts.forEach(p => {
-                  const label = new Date(p.created_at).toLocaleString('default', {
-                    month: 'long',
-                    year: 'numeric'
-                  });
-
-                  if (!groups[label]) groups[label] = [];
-                  groups[label].push(p);
-                });
-
-                res.render('community', {
-                  community,
-                  groups,
-                  isAdmin,
-                  isMember,
-                  currentUser: currentUser || null
-                });
-              }
-
-              const postIds = posts.map(p => p.id);
-
-              if (postIds.length === 0) {
-                return renderCommunity();
-              }
-
-              const placeholders = postIds.map(() => '?').join(',');
-
-              // 🔑 fetch comments
-              db.all(
-                `
-                SELECT comments.*, users.name AS commenter_name
-                FROM comments
-                JOIN users ON users.id = comments.user_id
-                WHERE comments.post_id IN (${placeholders})
-                ORDER BY comments.created_at ASC
-                `,
-                postIds,
-                (errComments, comments) => {
-                  if (errComments) return res.status(500).send('DB error');
-
-                  posts.forEach(post => {
-                    post.comments = comments.filter(c => c.post_id === post.id);
-                  });
-
-                  return renderCommunity();
-                }
-              );
-            }
-          );
-        }
-      );
-    });
-  });
-});
 
 app.get('/fishbowls/:id(\\d+)/join', (req, res) => {
   const id = req.params.id;
@@ -251,6 +168,27 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
   }
 );
 });
+
+function makeUniqueSlug(baseSlug, callback) {
+  let slug = baseSlug;
+  let counter = 2;
+
+  function checkSlug() {
+    db.get('SELECT id FROM communities WHERE slug = ?', [slug], (err, row) => {
+      if (err) return callback(err);
+
+      if (!row) {
+        return callback(null, slug);
+      }
+
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+      checkSlug();
+    });
+  }
+
+  checkSlug();
+}
 
 function requireLogin(req, res, next) {
   if (!req.session || !req.session.userId) {
@@ -321,6 +259,99 @@ app.get('/fishbowls/:id(\\d+)/new-post', requireMember, (req, res) => {
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err || !community) return res.status(404).send('Bowl not found');
     res.render('new_post', { community });
+  });
+});
+
+app.get('/fishbowls/:identifier', (req, res) => {
+  const identifier = req.params.identifier;
+  const currentUserId = req.session && req.session.userId;
+
+  const communityQuery = /^\d+$/.test(identifier)
+    ? 'SELECT * FROM communities WHERE id = ?'
+    : 'SELECT * FROM communities WHERE slug = ?';
+
+  db.get(communityQuery, [identifier], (err, community) => {
+    if (err) return res.status(500).send('DB error');
+    if (!community) return res.status(404).send('Bowl not found');
+
+    const id = community.id;
+
+    db.get('SELECT id, name FROM users WHERE id = ?', [currentUserId], (errUser, currentUser) => {
+      if (errUser) return res.status(500).send('DB error');
+
+      const isSiteAdmin = currentUser && SITE_ADMINS.includes(currentUser.name);
+
+      db.get(
+        'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
+        [currentUserId, id],
+        (errAdmin, membership) => {
+          if (errAdmin) return res.status(500).send('DB error');
+
+          const isAdmin = !!(
+            isSiteAdmin ||
+            (membership && (membership.is_admin === 1 || membership.role === 'admin'))
+          );
+
+          const isMember = !!membership || isSiteAdmin;
+
+          db.all(`
+            SELECT posts.*, users.name AS author_name
+            FROM posts
+            LEFT JOIN users ON users.id = posts.user_id
+            WHERE posts.community_id = ?
+            ORDER BY posts.created_at DESC
+          `, [id], (errPosts, posts) => {
+            if (errPosts) return res.status(500).send('DB error');
+
+            function renderCommunity() {
+              const groups = {};
+
+              posts.forEach(p => {
+                const label = new Date(p.created_at).toLocaleString('default', {
+                  month: 'long',
+                  year: 'numeric'
+                });
+
+                if (!groups[label]) groups[label] = [];
+                groups[label].push(p);
+              });
+
+              return res.render('community', {
+                community,
+                groups,
+                isAdmin,
+                isMember,
+                currentUser: currentUser || null
+              });
+            }
+
+            const postIds = posts.map(p => p.id);
+
+            if (postIds.length === 0) {
+              return renderCommunity();
+            }
+
+            const placeholders = postIds.map(() => '?').join(',');
+
+            db.all(`
+              SELECT comments.*, users.name AS commenter_name
+              FROM comments
+              JOIN users ON users.id = comments.user_id
+              WHERE comments.post_id IN (${placeholders})
+              ORDER BY comments.created_at ASC
+            `, postIds, (errComments, comments) => {
+              if (errComments) return res.status(500).send('DB error');
+
+              posts.forEach(post => {
+                post.comments = comments.filter(c => c.post_id === post.id);
+              });
+
+              return renderCommunity();
+            });
+          });
+        }
+      );
+    });
   });
 });
 
@@ -688,6 +719,23 @@ app.get('/__routes', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+});
+
+app.get('/fishbowls/:identifier', (req, res) => {
+  const identifier = req.params.identifier;
+
+  const query = /^\d+$/.test(identifier)
+    ? 'SELECT * FROM communities WHERE id = ?'
+    : 'SELECT * FROM communities WHERE slug = ?';
+
+  db.get(query, [identifier], (err, community) => {
+    if (err) return res.status(500).send('DB error');
+    if (!community) return res.status(404).send('Bowl not found');
+
+    const id = community.id;
+
+    // rest of your community route goes here
+  });
 });
 
 /*

@@ -3,9 +3,9 @@
   <ul class="fishbowls">
     <% communities.forEach(c => { %>
       <li>
-        <h3><a href="/fishbowls/<%= c.id %>"><%= c.name %></a></h3>
+        <h3><a href="/fishbowls/<%= c.slug || c.id%>"><%= c.name %></a></h3>
         <p><%= c.description %></p>
-        <p><a href="/fishbowls/<%= c.id %>/join">Join</a> • <a href="/fishbowls/<%= c.id %>/new-post">New Monthly Update</a></p>
+        <p><a href="/fishbowls/<%= c.slug || c.id%>/join">Join</a> • <a href="/fishbowls/<%= c.id || c.slug%>/new-post">New Monthly Update</a></p>
       </li>
     <% }) %>
   </ul>
