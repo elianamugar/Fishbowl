@@ -102,74 +102,78 @@ app.get('/', (req, res) => {
 
 app.get('/fishbowls/:id(\\d+)', (req, res) => {
   const id = req.params.id;
+  const currentUserId = req.session && req.session.userId;
+
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err || !community) return res.status(404).send('Bowl not found');
-    db.all(`
-  SELECT posts.*, users.name AS author_name
-  FROM posts
-  LEFT JOIN users ON users.id = posts.user_id
-  WHERE posts.community_id = ?
-  ORDER BY posts.created_at DESC
-`, [id], (err2, posts) => {
-    const postIds = posts.map(p => p.id);
 
-if (postIds.length === 0) {
-  return continueRender(posts, isAdmin);
-}
+    db.get(
+      'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
+      [currentUserId, id],
+      (errAdmin, membership) => {
+        if (errAdmin) return res.status(500).send('DB error');
 
-const placeholders = postIds.map(() => '?').join(',');
+        const isAdmin = !!(
+          membership &&
+          (membership.is_admin === 1 || membership.role === 'admin')
+        );
 
-db.all(`
-  SELECT comments.*, users.name AS commenter_name
-  FROM comments
-  JOIN users ON users.id = comments.user_id
-  WHERE comments.post_id IN (${placeholders})
-  ORDER BY comments.created_at ASC
-`, postIds, (err3, comments) => {
-  if (err3) return res.status(500).send('DB error');
+        db.all(`
+          SELECT posts.*, users.name AS author_name
+          FROM posts
+          LEFT JOIN users ON users.id = posts.user_id
+          WHERE posts.community_id = ?
+          ORDER BY posts.created_at DESC
+        `, [id], (errPosts, posts) => {
+          if (errPosts) return res.status(500).send('DB error');
 
-  posts.forEach(post => {
-    post.comments = comments.filter(c => c.post_id === post.id);
-  });
+          function renderCommunity() {
+            const groups = {};
 
-  continueRender(posts, isAdmin);
-});
-      if (err2) return res.status(500).send('DB error');
+            posts.forEach(p => {
+              const label = new Date(p.created_at).toLocaleString('default', {
+                month: 'long',
+                year: 'numeric'
+              });
 
-      // Group posts by month-year
-      function continueRender(posts, isAdmin) {
+              if (!groups[label]) groups[label] = [];
+              groups[label].push(p);
+            });
 
-  const groups = {};
+            return res.render('community', {
+              community,
+              groups,
+              isAdmin,
+              currentUser: currentUserId
+            });
+          }
 
-  posts.forEach(p => {
-    const label = new Date(p.created_at).toLocaleString('default', {
-      month: 'long',
-      year: 'numeric'
-    });
+          const postIds = posts.map(p => p.id);
 
-    if (!groups[label]) groups[label] = [];
-    groups[label].push(p);
-  });
+          if (postIds.length === 0) {
+            return renderCommunity();
+          }
 
-  res.render('community', {
-    community,
-    groups,
-    isAdmin,
-    currentUser: req.session.userId
-  });
-}
+          const placeholders = postIds.map(() => '?').join(',');
 
-      // find membership for current user to know if admin
-      const currentUserId = req.session && req.session.userId;
-      if (!currentUserId) {
-        return continueRender(posts, isAdmin);
+          db.all(`
+            SELECT comments.*, users.name AS commenter_name
+            FROM comments
+            JOIN users ON users.id = comments.user_id
+            WHERE comments.post_id IN (${placeholders})
+            ORDER BY comments.created_at ASC
+          `, postIds, (errComments, comments) => {
+            if (errComments) return res.status(500).send('DB error');
+
+            posts.forEach(post => {
+              post.comments = comments.filter(c => c.post_id === post.id);
+            });
+
+            return renderCommunity();
+          });
+        });
       }
-      db.get('SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?', [currentUserId, id], (err3, row3) => {
-        if (err3) return res.status(500).send('DB error');
-        const isAdmin = !!(row3 && (row3.is_admin === 1 || row3.role === 'admin'));
-        res.render('community', { community, groups, isAdmin });
-      });
-    });
+    );
   });
 });
 
@@ -259,6 +263,103 @@ db.run(
     res.redirect(`/fishbowls/${id}`);
   }
 );
+});
+
+app.post('/posts/:postId/comments', (req, res) => {
+  const postId = req.params.postId;
+  const userId = req.session && req.session.userId;
+  const content = (req.body.content || '').trim();
+
+  if (!userId) return res.redirect('/login');
+  if (!content) return res.redirect('back');
+
+  db.get('SELECT community_id FROM posts WHERE id = ?', [postId], (err, post) => {
+    if (err) return res.status(500).send('DB error');
+    if (!post) return res.status(404).send('Post not found');
+
+    const created_at = new Date().toISOString();
+
+    db.run(
+    'INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, ?)',
+    [postId, userId, content, created_at],
+        (err2) => {
+            if (err2) return res.status(500).send('DB error');
+            res.redirect(`/fishbowls/${post.community_id}`);
+        }
+        );
+  });
+});
+
+app.post('/posts/:postId/delete', (req, res) => {
+  const postId = req.params.postId;
+  const userId = req.session && req.session.userId;
+
+  if (!userId) return res.redirect('/login');
+
+  db.get(
+    `SELECT posts.*, memberships.is_admin, memberships.role
+     FROM posts
+     LEFT JOIN memberships
+       ON memberships.community_id = posts.community_id
+      AND memberships.user_id = ?
+     WHERE posts.id = ?`,
+    [userId, postId],
+    (err, post) => {
+      if (err) return res.status(500).send('DB error');
+      if (!post) return res.status(404).send('Post not found');
+
+      const isAuthor = post.user_id === userId;
+      const isAdmin = post.is_admin === 1 || post.role === 'admin';
+
+      if (!isAuthor && !isAdmin) {
+        return res.status(403).send('Forbidden');
+      }
+
+      db.serialize(() => {
+        db.run('DELETE FROM comments WHERE post_id = ?', [postId]);
+        db.run('DELETE FROM posts WHERE id = ?', [postId], (err2) => {
+          if (err2) return res.status(500).send('DB error');
+
+          res.redirect(`/fishbowls/${post.community_id}`);
+        });
+      });
+    }
+  );
+});
+
+app.post('/comments/:commentId/delete', (req, res) => {
+  const commentId = req.params.commentId;
+  const userId = req.session && req.session.userId;
+
+  if (!userId) return res.redirect('/login');
+
+  db.get(
+    `SELECT comments.*, posts.community_id, memberships.is_admin, memberships.role
+     FROM comments
+     JOIN posts ON posts.id = comments.post_id
+     LEFT JOIN memberships
+       ON memberships.community_id = posts.community_id
+      AND memberships.user_id = ?
+     WHERE comments.id = ?`,
+    [userId, commentId],
+    (err, comment) => {
+      if (err) return res.status(500).send('DB error');
+      if (!comment) return res.status(404).send('Comment not found');
+
+      const isAuthor = comment.user_id === userId;
+      const isAdmin = comment.is_admin === 1 || comment.role === 'admin';
+
+      if (!isAuthor && !isAdmin) {
+        return res.status(403).send('Forbidden');
+      }
+
+      db.run('DELETE FROM comments WHERE id = ?', [commentId], (err2) => {
+        if (err2) return res.status(500).send('DB error');
+
+        res.redirect(`/fishbowls/${comment.community_id}`);
+      });
+    }
+  );
 });
 
 // Dashboard to manage members

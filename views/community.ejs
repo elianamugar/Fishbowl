@@ -40,11 +40,20 @@
               <div class="post-meta">
                 <span class="post-author"><%= p.author_name || 'Unknown user' %></span>
                 <span>•</span>
-                <span><%= new Date(p.created_at).toLocaleDateString() %></span>
+                <span><%= new Date(p.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
               </div>
 
               <h4><%= p.title %></h4>
               <p><%= p.content %></p>
+              <% if (currentUser && (currentUser === p.user_id || isAdmin)) { %>
+  <form
+    method="POST"
+    action="/posts/<%= p.id %>/delete"
+    onsubmit="return confirm('Delete this post? This cannot be undone.');"
+  >
+    <button class="danger-button" type="submit">Delete post</button>
+  </form>
+<% } %>
               <div class="comments">
   <h5>Comments</h5>
 
@@ -52,8 +61,17 @@
     <% p.comments.forEach(comment => { %>
       <div class="comment">
         <strong><%= comment.commenter_name %></strong>
-        <span>• <%= new Date(comment.created_at).toLocaleDateString() %></span>
+        <span>• <%= new Date(comment.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
         <p><%= comment.content %></p>
+        <% if (currentUser && (currentUser === comment.user_id || isAdmin)) { %>
+  <form
+    method="POST"
+    action="/comments/<%= comment.id %>/delete"
+    onsubmit="return confirm('Delete this comment?');"
+  >
+    <button class="danger-button small" type="submit">Delete</button>
+  </form>
+<% } %>
       </div>
     <% }) %>
   <% } else { %>

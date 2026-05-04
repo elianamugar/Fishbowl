@@ -354,3 +354,37 @@ body[data-theme='dark'] .button.secondary {
 .comment-form button {
   margin-top: 8px;
 }
+
+.comment-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.comment-meta strong {
+  color: var(--text);
+}
+
+.post-card .danger-button {
+  margin-top: 14px;
+}
+
+.post-card form {
+  margin-top: 10px;
+}
+
+.danger-button {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.danger-button.small {
+  margin-top: 6px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
