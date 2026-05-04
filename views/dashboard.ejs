@@ -12,12 +12,12 @@
         <td><%= m.role || (m.is_admin ? 'admin' : 'member') %></td>
         <td>
           <% if (m.role === 'admin' || m.is_admin === 1) { %>
-            <form method="POST" action="/fishbowls/<%= community.id %>/members/<%= m.id %>/role" style="display:inline">
+            <form method="POST" action="/fishbowls/<%= community.slug %>/members/<%= m.id %>/role" style="display:inline">
               <input type="hidden" name="role" value="member">
               <button>Demote to member</button>
             </form>
           <% } else { %>
-            <form method="POST" action="/fishbowls/<%= community.id %>/members/<%= m.id %>/role" style="display:inline">
+            <form method="POST" action="/fishbowls/<%= community.slug %>/members/<%= m.id %>/role" style="display:inline">
               <input type="hidden" name="role" value="admin">
               <button>Promote to admin</button>
             </form>
@@ -27,7 +27,7 @@
     <% }) %>
   </tbody>
 </table>
-  <p style="margin-top:12px"><a href="/fishbowls/<%= community.id %>">Back</a></p>
+  <p style="margin-top:12px"><a href="/fishbowls/<%= community.slug %>">Back</a></p>
  
 <hr>
 

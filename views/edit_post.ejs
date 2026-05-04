@@ -1,0 +1,11 @@
+<h1>Edit Post</h1>
+
+<form method="POST" action="/posts/<%= post.id %>/edit">
+  <label>Title</label>
+  <input name="title" value="<%= post.title %>" required>
+
+  <label>Content</label>
+  <textarea name="content" required><%= post.content %></textarea>
+
+  <button type="submit">Save changes</button>
+</form>

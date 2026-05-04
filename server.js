@@ -8,6 +8,15 @@ const bcrypt = require('bcryptjs');
 const SITE_ADMINS = ['elianamugar'];
 
 const app = express();
+
+function slugify(text) {
+  return (text || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 const PORT = process.env.PORT || 3000;
 
 app.set('view engine', 'ejs');
@@ -65,48 +74,49 @@ app.get('/fishbowls/new', (req, res) => {
 app.post('/fishbowls', (req, res) => {
   const userId = req.session && req.session.userId;
   if (!userId) return res.redirect('/login?next=/fishbowls/new');
+
   const name = (req.body.name || '').trim();
-  const baseSlug = slugify(name);
-  
-  makeUniqueSlug(baseSlug, (errSlug, slug) => {
-    if (errSlug) return res.status(500).send('DB error');
-
-  db.run(
-    'UPDATE communities SET name = ?, slug = ?, description = ? WHERE id = ?',
-    [name, slug, description, id],
-    function (err) {
-      if (err) return res.status(500).send('DB error');
-
-      res.redirect(`/fishbowls/${slug}`);
-    }
-  );
-});
-
   const description = (req.body.description || '').trim();
+
   if (!name) {
     req.session.old = { name, description };
     req.flash('error', 'Please provide a name for the Fishbowl.');
     return res.redirect('/fishbowls/new');
   }
 
-  // ensure unique name (case-insensitive)
   db.get('SELECT id FROM communities WHERE LOWER(name) = LOWER(?)', [name], (errCheck, existing) => {
     if (errCheck) return res.status(500).send('DB error');
+
     if (existing) {
       req.session.old = { name, description };
       req.flash('error', 'A Fishbowl with that name already exists.');
       return res.redirect('/fishbowls/new');
     }
 
-    db.run('INSERT INTO communities (name, slug, description) VALUES (?, ?, ?)', [name, slug, description], function(err) {
-      if (err) return res.status(500).send('DB error');
-      const communityId = this.lastID;
-      // add membership for creator as admin
-      db.run('INSERT INTO memberships (user_id, community_id, is_admin, role) VALUES (?, ?, 1, "admin")', [userId, communityId], (e) => {
-        if (e) console.error('Failed to create membership for creator', e);
-        req.flash('success', 'Fishbowl created. You are the admin.');
-        res.redirect(`/fishbowls/${slug}`);
-      });
+    const baseSlug = slugify(name);
+
+    makeUniqueSlug(baseSlug, (errSlug, slug) => {
+      if (errSlug) return res.status(500).send('DB error');
+
+      db.run(
+        'INSERT INTO communities (name, slug, description) VALUES (?, ?, ?)',
+        [name, slug, description],
+        function (err) {
+          if (err) return res.status(500).send('DB error');
+
+          const communityId = this.lastID;
+
+          db.run(
+            'INSERT INTO memberships (user_id, community_id, is_admin, role) VALUES (?, ?, 1, "admin")',
+            [userId, communityId],
+            (e) => {
+              if (e) console.error('Failed to create membership for creator', e);
+              req.flash('success', 'Fishbowl created. You are the admin.');
+              res.redirect(`/fishbowls/${slug}`);
+            }
+          );
+        }
+      );
     });
   });
 });
@@ -130,7 +140,7 @@ app.get('/fishbowls/:id(\\d+)/join', (req, res) => {
 app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
   const id = req.params.id;
   const userId = req.session && req.session.userId;
-  if (!userId) return res.redirect(`/login?next=/fishbowls/${id}`);
+  if (!userId) return res.redirect(`/login?next=/fishbowls/${community.slug}`);
 
   db.get(
   'SELECT id FROM memberships WHERE user_id = ? AND community_id = ?',
@@ -140,7 +150,7 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
 
     if (existing) {
       req.flash('success', 'You are already a member of this Fishbowl.');
-      return res.redirect(`/fishbowls/${id}`);
+      return redirectToCommunity(req, res, id);
     }
 
     db.get(
@@ -151,7 +161,7 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
 
     if (existing) {
       req.flash('success', 'You are already a member of this Fishbowl.');
-      return res.redirect(`/fishbowls/${id}`);
+      return redirectToCommunity(req, res, id);
     }
 
     db.run(
@@ -160,7 +170,7 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
       (err2) => {
         if (err2) return res.status(500).send('DB error');
         req.flash('success', 'You joined this Fishbowl!');
-        res.redirect(`/fishbowls/${id}`);
+        redirectToCommunity(req, res, id);
       }
     );
   }
@@ -168,6 +178,14 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
   }
 );
 });
+
+function redirectToCommunity(req, res, communityId) {
+  db.get('SELECT slug FROM communities WHERE id = ?', [communityId], (err, community) => {
+    if (err || !community) return res.redirect('/');
+
+    res.redirect(`/fishbowls/${community.slug || communityId}`);
+  });
+}
 
 function makeUniqueSlug(baseSlug, callback) {
   let slug = baseSlug;
@@ -202,7 +220,7 @@ function requireAdmin(req, res, next) {
   const userId = req.session && req.session.userId;
 
   if (!userId) {
-    return res.redirect(`/login?next=/fishbowls/${id}`);
+    return res.redirect(`/login?next=/fishbowls/${community.slug}`);
   }
 
   // 🔑 Get user (this defines `user`)
@@ -359,7 +377,7 @@ app.post('/fishbowls/:id(\\d+)/posts', requireMember, (req, res) => {
   const id = req.params.id;
   const title = (req.body.title || '').trim();
   const content = (req.body.content || '').trim();
-  if (!title || !content) return res.redirect(`/fishbowls/${id}/new-post`);
+  if (!title || !content) return res.redirect(`/fishbowls/${community.slug}/new-post`);
 
   const created_at = new Date().toISOString();
   const userId = req.session.userId;
@@ -369,7 +387,7 @@ db.run(
   [id, userId, title, content, created_at],
   (err) => {
     if (err) return res.status(500).send('DB error');
-    res.redirect(`/fishbowls/${id}`);
+    redirectToCommunity(req, res, id);
   }
 );
 });
@@ -389,13 +407,17 @@ app.post('/posts/:postId/comments', (req, res) => {
     const created_at = new Date().toISOString();
 
     db.run(
-    'INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, ?)',
-    [postId, userId, content, created_at],
-        (err2) => {
-            if (err2) return res.status(500).send('DB error');
-            res.redirect(`/fishbowls/${post.community_id}`);
+      'INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?, ?, ?, ?)',
+      [postId, userId, content, created_at],
+      (err2) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).send('DB error');
         }
-        );
+
+        redirectToCommunity(req, res, post.community_id);
+      }
+    );
   });
 });
 
@@ -429,12 +451,14 @@ app.post('/posts/:postId/delete', (req, res) => {
         db.run('DELETE FROM posts WHERE id = ?', [postId], (err2) => {
           if (err2) return res.status(500).send('DB error');
 
-          res.redirect(`/fishbowls/${post.community_id}`);
+          redirectToCommunity(req, res, post.community_id);
         });
       });
     }
   );
 });
+
+
 
 app.post('/comments/:commentId/delete', (req, res) => {
   const commentId = req.params.commentId;
@@ -465,8 +489,143 @@ app.post('/comments/:commentId/delete', (req, res) => {
       db.run('DELETE FROM comments WHERE id = ?', [commentId], (err2) => {
         if (err2) return res.status(500).send('DB error');
 
-        res.redirect(`/fishbowls/${comment.community_id}`);
+        redirectToCommunity(req, res, comment.community_id);
       });
+    }
+  );
+});
+
+app.get('/comments/:commentId/edit', (req, res) => {
+  const commentId = req.params.commentId;
+  const userId = req.session && req.session.userId;
+
+  if (!userId) return res.redirect('/login');
+
+  db.get(
+    `SELECT comments.*, posts.community_id, memberships.is_admin, memberships.role
+     FROM comments
+     JOIN posts ON posts.id = comments.post_id
+     LEFT JOIN memberships
+       ON memberships.community_id = posts.community_id
+      AND memberships.user_id = ?
+     WHERE comments.id = ?`,
+    [userId, commentId],
+    (err, comment) => {
+      if (err) return res.status(500).send('DB error');
+      if (!comment) return res.status(404).send('Comment not found');
+
+      const isAuthor = comment.user_id === userId;
+      const isAdmin = comment.is_admin === 1 || comment.role === 'admin';
+
+      if (!isAuthor && !isAdmin) return res.status(403).send('Forbidden');
+
+      res.render('edit_comment', { comment });
+    }
+  );
+});
+
+app.post('/comments/:commentId/edit', (req, res) => {
+  const commentId = req.params.commentId;
+  const userId = req.session && req.session.userId;
+  const content = (req.body.content || '').trim();
+
+  if (!userId) return res.redirect('/login');
+  if (!content) return res.redirect(`/comments/${commentId}/edit`);
+
+  db.get(
+    `SELECT comments.*, posts.community_id, communities.slug, memberships.is_admin, memberships.role
+     FROM comments
+     JOIN posts ON posts.id = comments.post_id
+     JOIN communities ON communities.id = posts.community_id
+     LEFT JOIN memberships
+       ON memberships.community_id = posts.community_id
+      AND memberships.user_id = ?
+     WHERE comments.id = ?`,
+    [userId, commentId],
+    (err, comment) => {
+      if (err) return res.status(500).send('DB error');
+      if (!comment) return res.status(404).send('Comment not found');
+
+      const isAuthor = comment.user_id === userId;
+      const isAdmin = comment.is_admin === 1 || comment.role === 'admin';
+
+      if (!isAuthor && !isAdmin) return res.status(403).send('Forbidden');
+
+      db.run(
+        'UPDATE comments SET content = ? WHERE id = ?',
+        [content, commentId],
+        (err2) => {
+          if (err2) return res.status(500).send('DB error');
+          return res.redirect(`/fishbowls/${comment.slug}`);
+        }
+      );
+    }
+  );
+});
+
+app.get('/posts/:postId/edit', (req, res) => {
+  const postId = req.params.postId;
+  const userId = req.session && req.session.userId;
+
+  if (!userId) return res.redirect('/login');
+
+  db.get(
+    `SELECT posts.*, memberships.is_admin, memberships.role
+     FROM posts
+     LEFT JOIN memberships
+       ON memberships.community_id = posts.community_id
+      AND memberships.user_id = ?
+     WHERE posts.id = ?`,
+    [userId, postId],
+    (err, post) => {
+      if (err) return res.status(500).send('DB error');
+      if (!post) return res.status(404).send('Post not found');
+
+      const isAuthor = post.user_id === userId;
+      const isAdmin = post.is_admin === 1 || post.role === 'admin';
+
+      if (!isAuthor && !isAdmin) return res.status(403).send('Forbidden');
+
+      res.render('edit_post', { post });
+    }
+  );
+});
+
+app.post('/posts/:postId/edit', (req, res) => {
+  const postId = req.params.postId;
+  const userId = req.session && req.session.userId;
+  const title = (req.body.title || '').trim();
+  const content = (req.body.content || '').trim();
+
+  if (!userId) return res.redirect('/login');
+  if (!title || !content) return res.redirect(`/posts/${postId}/edit`);
+
+  db.get(
+    `SELECT posts.*, communities.slug, memberships.is_admin, memberships.role
+     FROM posts
+     JOIN communities ON communities.id = posts.community_id
+     LEFT JOIN memberships
+       ON memberships.community_id = posts.community_id
+      AND memberships.user_id = ?
+     WHERE posts.id = ?`,
+    [userId, postId],
+    (err, post) => {
+      if (err) return res.status(500).send('DB error');
+      if (!post) return res.status(404).send('Post not found');
+
+      const isAuthor = post.user_id === userId;
+      const isAdmin = post.is_admin === 1 || post.role === 'admin';
+
+      if (!isAuthor && !isAdmin) return res.status(403).send('Forbidden');
+
+      db.run(
+        'UPDATE posts SET title = ?, content = ? WHERE id = ?',
+        [title, content, postId],
+        (err2) => {
+          if (err2) return res.status(500).send('DB error');
+          return res.redirect(`/fishbowls/${post.slug}`);
+        }
+      );
     }
   );
 });
@@ -522,7 +681,7 @@ app.post('/fishbowls/:id(\\d+)/members/:memberId/role', requireAdmin, (req, res)
   ORDER BY users.name COLLATE NOCASE ASC
 `, [id], (err2, members) => {
     if (err) return res.status(500).send('DB error');
-    res.redirect(`/fishbowls/${id}/dashboard`);
+    res.redirect(`/fishbowls/${community.slug}/dashboard`);
   });
 });
 
@@ -721,20 +880,17 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
-app.get('/fishbowls/:identifier', (req, res) => {
-  const identifier = req.params.identifier;
+app.get('/fishbowls/:slug', (req, res) => {
+  const slug = req.params.slug;
 
-  const query = /^\d+$/.test(identifier)
-    ? 'SELECT * FROM communities WHERE id = ?'
-    : 'SELECT * FROM communities WHERE slug = ?';
-
-  db.get(query, [identifier], (err, community) => {
+  db.get('SELECT * FROM communities WHERE slug = ?', [slug], (err, community) => {
     if (err) return res.status(500).send('DB error');
     if (!community) return res.status(404).send('Bowl not found');
 
     const id = community.id;
 
-    // rest of your community route goes here
+    // paste the rest of your existing community-page logic here,
+    // using `id` for posts, comments, memberships, etc.
   });
 });
 

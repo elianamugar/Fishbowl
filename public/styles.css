@@ -398,3 +398,9 @@ body[data-theme='dark'] .button.secondary {
   color: var(--muted);
   font-weight: 700;
 }
+
+.comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}

@@ -23,7 +23,7 @@ db.serialize(() => {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
-    slug TEXT UNIQUE
+    slug TEXT
   )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS memberships (
@@ -56,7 +56,7 @@ db.serialize(() => {
   db.get('SELECT COUNT(*) as c FROM communities', (err, row) => {
     if (err) return console.error(err);
     if (row.c === 0) {
-      const stmt = db.prepare('INSERT INTO communities (name, description) VALUES (?, ?)');
+      const stmt = db.prepare('INSERT INTO communities (name, slug, description) VALUES (?, ?, ?)');
       stmt.run('Gardening', 'Community for plant lovers and gardeners');
       stmt.run('Open Source', 'Discuss and share open source projects');
       stmt.run('Photography', 'Share photos and monthly highlights');

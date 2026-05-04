@@ -18,7 +18,7 @@
         <a class="button" href="/fishbowls/<%= community.id %>/join">Join to post</a>
 
     <% } else { %>
-        <a class="button" href="/login?next=/fishbowls/<%= community.id %>">Log in to join</a>
+        <a class="button" href="/login?next=/fishbowls/<%= community.slug %>">Log in to join</a>
     <% } %>
   </div>
 </section>
@@ -50,6 +50,9 @@
                 <span class="post-author"><%= p.author_name || 'Unknown user' %></span>
                 <span>•</span>
                 <span><%= new Date(p.created_at.includes('T') ? p.created_at : p.created_at + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+                <% if (currentUser && (currentUser.id === p.user_id || isAdmin)) { %>
+  <a class="button secondary" href="/posts/<%= p.id %>/edit">Edit post</a>
+<% } %>
               </div>
 
               <h4><%= p.title %></h4>
@@ -80,6 +83,9 @@
   >
     <button class="danger-button small" type="submit">Delete</button>
   </form>
+  <% if (currentUser && (currentUser.id === comment.user_id || isAdmin)) { %>
+  <a class="button secondary" href="/comments/<%= comment.id %>/edit">Edit</a>
+<% } %>
 <% } %>
       </div>
     <% }) %>
