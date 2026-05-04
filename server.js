@@ -106,7 +106,7 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
   const id = req.params.id;
   const currentUserId = req.session && req.session.userId;
 
-  const isSiteAdmin = currentUser && SITE_ADMINS.includes(user.name);
+  const isSiteAdmin = user && SITE_ADMINS.includes(user.name);
 
     const isAdmin = !!(
     isSiteAdmin ||
