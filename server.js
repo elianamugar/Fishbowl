@@ -105,75 +105,88 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
   const currentUserId = req.session && req.session.userId;
 
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
-    if (err || !community) return res.status(404).send('Bowl not found');
+    if (err) return res.status(500).send('DB error');
+    if (!community) return res.status(404).send('Bowl not found');
 
-    db.get(
-      'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
-      [currentUserId, id],
-      (errAdmin, membership) => {
-        if (errAdmin) return res.status(500).send('DB error');
+    db.get('SELECT id, name FROM users WHERE id = ?', [currentUserId], (errUser, currentUser) => {
+      if (errUser) return res.status(500).send('DB error');
 
-        const isAdmin = !!(
-          membership &&
-          (membership.is_admin === 1 || membership.role === 'admin')
-        );
+      db.get(
+        'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
+        [currentUserId, id],
+        (errAdmin, membership) => {
+          if (errAdmin) return res.status(500).send('DB error');
 
-        db.all(`
-          SELECT posts.*, users.name AS author_name
-          FROM posts
-          LEFT JOIN users ON users.id = posts.user_id
-          WHERE posts.community_id = ?
-          ORDER BY posts.created_at DESC
-        `, [id], (errPosts, posts) => {
-          if (errPosts) return res.status(500).send('DB error');
+          const isAdmin = !!(
+            membership &&
+            (membership.is_admin === 1 || membership.role === 'admin')
+          );
 
-          function renderCommunity() {
-            const groups = {};
+          db.all(
+            `
+            SELECT posts.*, users.name AS author_name
+            FROM posts
+            LEFT JOIN users ON users.id = posts.user_id
+            WHERE posts.community_id = ?
+            ORDER BY posts.created_at DESC
+            `,
+            [id],
+            (errPosts, posts) => {
+              if (errPosts) return res.status(500).send('DB error');
 
-            posts.forEach(p => {
-              const label = new Date(p.created_at).toLocaleString('default', {
-                month: 'long',
-                year: 'numeric'
-              });
+              const renderCommunity = () => {
+                const groups = {};
 
-              if (!groups[label]) groups[label] = [];
-              groups[label].push(p);
-            });
+                posts.forEach((p) => {
+                  const label = new Date(p.created_at).toLocaleString('default', {
+                    month: 'long',
+                    year: 'numeric'
+                  });
 
-            return res.render('community', {
-              community,
-              groups,
-              isAdmin,
-              currentUser: currentUserId
-            });
-          }
+                  if (!groups[label]) groups[label] = [];
+                  groups[label].push(p);
+                });
 
-          const postIds = posts.map(p => p.id);
+                res.render('community', {
+                  community,
+                  groups,
+                  isAdmin,
+                  currentUser: currentUser || null
+                });
+              };
 
-          if (postIds.length === 0) {
-            return renderCommunity();
-          }
+              const postIds = posts.map((p) => p.id);
 
-          const placeholders = postIds.map(() => '?').join(',');
+              if (postIds.length === 0) {
+                return renderCommunity();
+              }
 
-          db.all(`
-            SELECT comments.*, users.name AS commenter_name
-            FROM comments
-            JOIN users ON users.id = comments.user_id
-            WHERE comments.post_id IN (${placeholders})
-            ORDER BY comments.created_at ASC
-          `, postIds, (errComments, comments) => {
-            if (errComments) return res.status(500).send('DB error');
+              const placeholders = postIds.map(() => '?').join(',');
 
-            posts.forEach(post => {
-              post.comments = comments.filter(c => c.post_id === post.id);
-            });
+              db.all(
+                `
+                SELECT comments.*, users.name AS commenter_name
+                FROM comments
+                JOIN users ON users.id = comments.user_id
+                WHERE comments.post_id IN (${placeholders})
+                ORDER BY comments.created_at ASC
+                `,
+                postIds,
+                (errComments, comments) => {
+                  if (errComments) return res.status(500).send('DB error');
 
-            return renderCommunity();
-          });
-        });
-      }
-    );
+                  posts.forEach((post) => {
+                    post.comments = comments.filter((comment) => comment.post_id === post.id);
+                  });
+
+                  return renderCommunity();
+                }
+              );
+            }
+          );
+        }
+      );
+    });
   });
 });
 
