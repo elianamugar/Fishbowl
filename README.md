@@ -1,4 +1,4 @@
-# Community Monthly Updates
+# Fishbowl Monthly Updates
 
 Simple demo app where users can join Fishbowls and Fishbowls post monthly updates.
 
