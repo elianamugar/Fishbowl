@@ -1,0 +1,12 @@
+<div class="card">
+  <h2>Join <%= community.name %></h2>
+
+  <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+    <p>You're logged in as <strong><%= currentUser.name %></strong>.</p>
+    <form method="POST" action="/fishbowls/<%= community.id %>/join">
+      <button type="submit">Join</button>
+    </form>
+  <% } else { %>
+    <p>You need an account to join. <a href="/signup?next=/fishbowls/<%= community.id %>/join">Sign up</a> or <a href="/login?next=/fishbowls/<%= community.id %>/join">login</a>.</p>
+  <% } %>
+</div>

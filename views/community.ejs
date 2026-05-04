@@ -1,0 +1,33 @@
+<div class="card">
+  <h2><%= community.name %></h2>
+  <p><%= community.description %></p>
+
+  <p>
+    <a href="/fishbowls/<%= community.id %>/join">Join this Bowl</a> • <a href="/fishbowls/<%= community.id %>/new-post">Post monthly update</a>
+    <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+      • <a href="/fishbowls/<%= community.id %>/dashboard">Manage members</a>
+    <% } %>
+    • <a href="/fishbowls/<%= community.id %>/members">View members</a>
+  </p>
+</div>
+
+<section class="posts">
+  <% if (Object.keys(groups).length === 0) { %>
+    <p>No updates yet. Be the first to post a monthly update.</p>
+  <% } else { %>
+    <% Object.keys(groups).forEach(label => { %>
+      <article class="month-group">
+        <h3><%= label %></h3>
+        <ul>
+          <% groups[label].forEach(p => { %>
+            <li>
+              <h4><%= p.title %></h4>
+              <div class="meta">Posted: <%= new Date(p.created_at).toLocaleString() %></div>
+              <p><%= p.content %></p>
+            </li>
+          <% }) %>
+        </ul>
+      </article>
+    <% }) %>
+  <% } %>
+</section>

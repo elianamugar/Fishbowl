@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title><%= (typeof title !== 'undefined' ? title : 'Fishbowls') %></title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <h1><a href="/">Fishbowls</a></h1>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="auth">
+            <% if (typeof currentUser !== 'undefined' && currentUser) { %>
+              <span>Hello, <%= currentUser.name %></span>
+              <a href="/logout">Logout</a>
+              <a href="/fishbowls/new" style="margin-left:8px">Create Fishbowl</a>
+            <% } else { %>
+              <a href="/login">Login</a>
+            <% } %>
+          </div>
+          <button id="theme-toggle" aria-label="Toggle theme" style="background:transparent;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer">🌙</button>
+        </div>
+      </div>
+    </header>
+    <main class="container">
+      <% if (messages && messages.length) { %>
+        <div class="flash">
+          <% messages.forEach(m => { %>
+            <div class="flash-<%= m.type %>"><%= m.text %></div>
+          <% }) %>
+        </div>
+      <% } %>
+      <%- body %>
+    </main>
+    <footer>
+      <p>Simple Fishbowls monthly updates demo</p>
+    </footer>
+  </body>
+  <script>
+    (function(){
+      const root = document.documentElement;
+      const stored = localStorage.getItem('fishbowl-theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const current = stored || (prefersDark ? 'dark' : 'light');
+      function applyTheme(t){
+        if(t === 'dark'){
+          document.body.setAttribute('data-theme','dark');
+          document.documentElement.setAttribute('data-theme','dark');
+          document.querySelector('header')?.setAttribute('data-theme','dark');
+          document.getElementById('theme-toggle').textContent = '☀️';
+        } else {
+          document.body.removeAttribute('data-theme');
+          document.documentElement.removeAttribute('data-theme');
+          document.querySelector('header')?.removeAttribute('data-theme');
+          document.getElementById('theme-toggle').textContent = '🌙';
+        }
+      }
+      applyTheme(current);
+      document.getElementById('theme-toggle').addEventListener('click', ()=>{
+        const next = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+        localStorage.setItem('fishbowl-theme', next);
+        applyTheme(next);
+      });
+    })();
+  </script>
+</html>

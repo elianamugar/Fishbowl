@@ -1,0 +1,31 @@
+<div class="card">
+  <h2>Members — <%= community.name %></h2>
+
+  <table>
+  <thead>
+    <tr><th>Name</th><th>Role</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    <% members.forEach(m => { %>
+      <tr>
+        <td><%= m.name %></td>
+        <td><%= m.role || (m.is_admin ? 'admin' : 'member') %></td>
+        <td>
+          <% if (m.role === 'admin' || m.is_admin === 1) { %>
+            <form method="POST" action="/fishbowls/<%= community.id %>/members/<%= m.id %>/role" style="display:inline">
+              <input type="hidden" name="role" value="member">
+              <button>Demote to member</button>
+            </form>
+          <% } else { %>
+            <form method="POST" action="/fishbowls/<%= community.id %>/members/<%= m.id %>/role" style="display:inline">
+              <input type="hidden" name="role" value="admin">
+              <button>Promote to admin</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+  <p style="margin-top:12px"><a href="/fishbowls/<%= community.id %>">Back</a></p>
+</div>

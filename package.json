@@ -1,0 +1,20 @@
+{
+  "name": "community-monthly-updates",
+  "version": "0.1.0",
+  "description": "Simple site where users join Fishbowls and Fishbowls post monthly updates",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.18.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-session": "^1.17.3",
+    "bcryptjs": "^2.4.3",
+    "sqlite3": "^5.1.6"
+  }
+}

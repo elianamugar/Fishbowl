@@ -1,0 +1,12 @@
+<h2>Available Fishbowls</h2>
+<div class="card">
+  <ul class="fishbowls">
+    <% communities.forEach(c => { %>
+      <li>
+        <h3><a href="/fishbowls/<%= c.id %>"><%= c.name %></a></h3>
+        <p><%= c.description %></p>
+        <p><a href="/fishbowls/<%= c.id %>/join">Join</a> • <a href="/fishbowls/<%= c.id %>/new-post">New Monthly Update</a></p>
+      </li>
+    <% }) %>
+  </ul>
+</div>

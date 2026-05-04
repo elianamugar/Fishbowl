@@ -1,0 +1,16 @@
+<div class="card">
+  <h2>Sign up</h2>
+
+  <form method="POST" action="/signup">
+    <input type="hidden" name="next" value="<%= next %>">
+    <label>Name<br>
+      <input name="name" value="<%= name || '' %>" required>
+    </label>
+    <label>Password<br>
+      <input type="password" name="password" required>
+    </label>
+    <button type="submit">Create account</button>
+  </form>
+
+  <p style="margin-top:12px">Already have an account? <a href="/login?next=<%= encodeURIComponent(next) %>&name=<%= encodeURIComponent(name || '') %>">Login</a></p>
+</div>

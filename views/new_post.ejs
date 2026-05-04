@@ -1,0 +1,13 @@
+<div class="card">
+  <h2>New Monthly Update for <%= community.name %></h2>
+
+  <form method="POST" action="/fishbowls/<%= community.id %>/posts">
+    <label>Title<br>
+      <input name="title" required>
+    </label>
+    <label>Content<br>
+      <textarea name="content" rows="6" required></textarea>
+    </label>
+    <button type="submit">Publish</button>
+  </form>
+</div>

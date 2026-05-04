@@ -1,0 +1,105 @@
+<div class="card">
+  <h2>Members — <%= community.name %></h2>
+
+  <form method="GET" action="/fishbowls/<%= community.id %>/members" class="search">
+  <input name="q" placeholder="Search members" value="<%= q || '' %>">
+  <select name="role">
+    <option value="" <%= (!role ? 'selected' : '') %>>All roles</option>
+    <option value="admin" <%= (role === 'admin' ? 'selected' : '') %>>Admins</option>
+    <option value="member" <%= (role === 'member' ? 'selected' : '') %>>Members</option>
+  </select>
+  <select name="sort">
+    <option value="joined" <%= (sort === 'joined' || !sort ? 'selected' : '') %>>Joined</option>
+    <option value="name" <%= (sort === 'name' ? 'selected' : '') %>>Name</option>
+  </select>
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+  <thead>
+    <tr><th>Name</th><th>Role</th><th>Joined</th></tr>
+  </thead>
+  <tbody>
+    <% if (!members || members.length === 0) { %>
+      <tr><td colspan="3">No members found.</td></tr>
+    <% } else { %>
+      <% members.forEach(m => { %>
+        <tr>
+          <td><%= m.name %></td>
+          <td><%= m.role || (m.is_admin ? 'admin' : 'member') %></td>
+          <td><%= new Date(m.created_at).toLocaleString() %></td>
+        </tr>
+      <% }) %>
+    <% } %>
+  </tbody>
+</table>
+
+  <nav class="pagination">
+  <% if (typeof page !== 'undefined' && typeof totalPages !== 'undefined') { %>
+    <% if (page > 1) { %>
+      <a href="/fishbowls/<%= community.id %>/members?page=<%= page-1 %><% if (q) { %>&q=<%= encodeURIComponent(q) %><% } %>">Prev</a>
+    <% } %>
+    <% for (let p = 1; p <= totalPages; p++) { %>
+      <% if (p === page) { %>
+        <strong><%= p %></strong>
+      <% } else { %>
+        <a href="/fishbowls/<%= community.id %>/members?page=<%= p %><% if (q) { %>&q=<%= encodeURIComponent(q) %><% } %>"><%= p %></a>
+      <% } %>
+    <% } %>
+    <% if (page < totalPages) { %>
+      <a href="/fishbowls/<%= community.id %>/members?page=<%= page+1 %><% if (q) { %>&q=<%= encodeURIComponent(q) %><% } %>">Next</a>
+    <% } %>
+  <% } %>
+</nav>
+
+<p><a href="/fishbowls/<%= community.id %>">Back</a></p>
+
+</div>
+
+<script>
+(() => {
+  const searchInput = document.querySelector('.search input[name="q"]');
+  const roleSelect = document.querySelector('.search select[name="role"]');
+  const sortSelect = document.querySelector('.search select[name="sort"]');
+  const tableBody = document.querySelector('table tbody');
+
+  if (!searchInput || !tableBody) return;
+
+  let timeout = null;
+  function renderMembers(members) {
+    if (!members || members.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="3">No members found.</td></tr>';
+      return;
+    }
+    tableBody.innerHTML = members.map(m => {
+      const role = m.role || (m.is_admin ? 'admin' : 'member');
+      const joined = new Date(m.created_at).toLocaleString();
+      return `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(role)}</td><td>${escapeHtml(joined)}</td></tr>`;
+    }).join('');
+  }
+
+  function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;" })[s]); }
+
+  function doSearch() {
+    const q = searchInput.value || '';
+    const role = roleSelect ? roleSelect.value : '';
+    const sort = sortSelect ? sortSelect.value : '';
+    fetch(`/api/fishbowls/<%= community.id %>/members?q=${encodeURIComponent(q)}&role=${encodeURIComponent(role)}&sort=${encodeURIComponent(sort)}`)
+      .then(r => r.json())
+      .then(data => {
+        renderMembers(data.members);
+      }).catch(err => {
+        console.error('live search error', err);
+      });
+  }
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(doSearch, 250);
+  });
+  if (roleSelect) roleSelect.addEventListener('change', doSearch);
+  if (sortSelect) sortSelect.addEventListener('change', doSearch);
+})();
+</script>
