@@ -388,3 +388,13 @@ body[data-theme='dark'] .button.secondary {
   padding: 5px 10px;
   font-size: 0.8rem;
 }
+
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(120, 120, 120, 0.14);
+  color: var(--muted);
+  font-weight: 700;
+}

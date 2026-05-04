@@ -128,6 +128,8 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
             (membership && (membership.is_admin === 1 || membership.role === 'admin'))
           );
 
+          const isMember = !!membership || isSiteAdmin;
+
           // 🔑 fetch posts
           db.all(
             `
@@ -159,6 +161,7 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
                   community,
                   groups,
                   isAdmin,
+                  isMember,
                   currentUser: currentUser || null
                 });
               }

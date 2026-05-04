@@ -4,12 +4,21 @@
   <p class="community-description"><%= community.description %></p>
 
   <div class="actions">
-    <a class="button secondary" href="/fishbowls/<%= community.id %>/join">Join community</a>
     <a class="button secondary" href="/fishbowls/<%= community.id %>/members">View members</a>
 
-    <% if (currentUser) { %>
-      <a class="button" href="/fishbowls/<%= community.id %>/new-post">Post monthly update</a>
-      <a class="button secondary" href="/fishbowls/<%= community.id %>/dashboard">Manage members</a>
+    <% if (isAdmin) { %>
+        <a class="button" href="/fishbowls/<%= community.id %>/new-post">Post as admin</a>
+        <a class="button secondary" href="/fishbowls/<%= community.id %>/dashboard">Manage members</a>
+
+    <% } else if (isMember) { %>
+        <a class="button" href="/fishbowls/<%= community.id %>/new-post">Create post</a>
+        <span class="role-pill">Member</span>
+
+    <% } else if (currentUser) { %>
+        <a class="button" href="/fishbowls/<%= community.id %>/join">Join to post</a>
+
+    <% } else { %>
+        <a class="button" href="/login?next=/fishbowls/<%= community.id %>">Log in to join</a>
     <% } %>
   </div>
 </section>
@@ -40,12 +49,12 @@
               <div class="post-meta">
                 <span class="post-author"><%= p.author_name || 'Unknown user' %></span>
                 <span>•</span>
-                <span><%= new Date(p.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+                <span><%= new Date(p.created_at.includes('T') ? p.created_at : p.created_at + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
               </div>
 
               <h4><%= p.title %></h4>
               <p><%= p.content %></p>
-              <% if (currentUser && (currentUser === p.user_id || isAdmin)) { %>
+              <% if (currentUser && (currentUser.id === p.user_id || isAdmin)) { %>
   <form
     method="POST"
     action="/posts/<%= p.id %>/delete"
@@ -61,9 +70,9 @@
     <% p.comments.forEach(comment => { %>
       <div class="comment">
         <strong><%= comment.commenter_name %></strong>
-        <span>• <%= new Date(comment.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+        <span><%= new Date(comment.created_at.includes('T') ? comment.created_at : comment.created_at + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
         <p><%= comment.content %></p>
-        <% if (currentUser && (currentUser === comment.user_id || isAdmin)) { %>
+        <% if (currentUser && (currentUser.id === comment.user_id || isAdmin)) { %>
   <form
     method="POST"
     action="/comments/<%= comment.id %>/delete"
