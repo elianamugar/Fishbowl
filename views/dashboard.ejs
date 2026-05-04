@@ -28,4 +28,18 @@
   </tbody>
 </table>
   <p style="margin-top:12px"><a href="/fishbowls/<%= community.id %>">Back</a></p>
+  <hr>
+
+<section class="danger-zone">
+  <h2>Danger Zone</h2>
+  <p>Deleting this Fishbowl will permanently remove its monthly updates and memberships.</p>
+
+  <form
+    method="POST"
+    action="/fishbowls/<%= community.id %>/delete"
+    onsubmit="return confirm('Are you sure you want to delete this Fishbowl? This cannot be undone.');"
+  >
+    <button class="danger-button" type="submit">Delete Fishbowl</button>
+  </form>
+</section>
 </div>

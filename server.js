@@ -143,11 +143,43 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
   const userId = req.session && req.session.userId;
   if (!userId) return res.redirect(`/login?next=/fishbowls/${id}`);
 
-  db.run('INSERT INTO memberships (user_id, community_id) VALUES (?, ?)', [userId, id], (err2) => {
-    if (err2) return res.status(500).send('DB error');
-    res.redirect(`/fishbowls/${id}`);
-  });
+  db.get(
+  'SELECT id FROM memberships WHERE user_id = ? AND community_id = ?',
+  [userId, id],
+  (errCheck, existing) => {
+    if (errCheck) return res.status(500).send('DB error');
+
+    if (existing) {
+      req.flash('success', 'You are already a member of this Fishbowl.');
+      return res.redirect(`/fishbowls/${id}`);
+    }
+
+    db.get(
+  'SELECT id FROM memberships WHERE user_id = ? AND community_id = ?',
+  [userId, id],
+  (errCheck, existing) => {
+    if (errCheck) return res.status(500).send('DB error');
+
+    if (existing) {
+      req.flash('success', 'You are already a member of this Fishbowl.');
+      return res.redirect(`/fishbowls/${id}`);
+    }
+
+    db.run(
+      'INSERT INTO memberships (user_id, community_id) VALUES (?, ?)',
+      [userId, id],
+      (err2) => {
+        if (err2) return res.status(500).send('DB error');
+        req.flash('success', 'You joined this Fishbowl!');
+        res.redirect(`/fishbowls/${id}`);
+      }
+    );
+  }
+);
+  }
+);
 });
+
 function requireAdmin(req, res, next) {
   const id = req.params.id;
   const userId = req.session.userId;
@@ -185,9 +217,26 @@ app.get('/fishbowls/:id(\\d+)/dashboard', requireAdmin, (req, res) => {
   const id = req.params.id;
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err || !community) return res.status(404).send('Bowl not found');
-    db.all('SELECT memberships.id as id, users.name as name, memberships.is_admin as is_admin, memberships.role as role FROM memberships JOIN users ON users.id = memberships.user_id WHERE memberships.community_id = ?', [id], (err2, members) => {
+    db.all(`
+  SELECT 
+    MIN(memberships.id) as id,
+    users.id as user_id,
+    users.name as name,
+    MAX(memberships.is_admin) as is_admin,
+    CASE
+      WHEN MAX(memberships.is_admin) = 1 
+        OR SUM(CASE WHEN memberships.role = 'admin' THEN 1 ELSE 0 END) > 0
+      THEN 'admin'
+      ELSE 'member'
+    END as role
+  FROM memberships
+  JOIN users ON users.id = memberships.user_id
+  WHERE memberships.community_id = ?
+  GROUP BY users.id, users.name
+  ORDER BY users.name COLLATE NOCASE ASC
+`, [id], (err2, members) => {
       if (err2) return res.status(500).send('DB error');
-      res.render('dashboard', { community, members });
+      res.render('dashboard', { community, members, isAdmin: true });
     });
   });
 });
@@ -196,9 +245,40 @@ app.post('/fishbowls/:id(\\d+)/members/:memberId/role', requireAdmin, (req, res)
   const id = req.params.id;
   const membershipId = req.params.memberId;
   const role = req.body.role === 'admin' ? 'admin' : 'member';
-  db.run('UPDATE memberships SET role = ?, is_admin = CASE WHEN ? = "admin" THEN 1 ELSE 0 END WHERE id = ? AND community_id = ?', [role, role, membershipId, id], (err) => {
+  db.all(`
+  SELECT 
+    MIN(memberships.id) as id,
+    users.id as user_id,
+    users.name as name,
+    MAX(memberships.is_admin) as is_admin,
+    CASE
+      WHEN SUM(CASE WHEN memberships.role = 'admin' THEN 1 ELSE 0 END) > 0
+      THEN 'admin'
+      ELSE 'member'
+    END as role
+  FROM memberships
+  JOIN users ON users.id = memberships.user_id
+  WHERE memberships.community_id = ?
+  GROUP BY users.id, users.name
+  ORDER BY users.name COLLATE NOCASE ASC
+`, [id], (err2, members) => {
     if (err) return res.status(500).send('DB error');
     res.redirect(`/fishbowls/${id}/dashboard`);
+  });
+});
+
+app.post('/fishbowls/:id(\\d+)/delete', requireAdmin, (req, res) => {
+  const id = req.params.id;
+
+  db.serialize(() => {
+    db.run('DELETE FROM posts WHERE community_id = ?', [id]);
+    db.run('DELETE FROM memberships WHERE community_id = ?', [id]);
+    db.run('DELETE FROM communities WHERE id = ?', [id], (err) => {
+      if (err) return res.status(500).send('DB error deleting Fishbowl');
+
+      req.flash('success', 'Fishbowl deleted.');
+      res.redirect('/');
+    });
   });
 });
 
@@ -227,7 +307,14 @@ app.get('/fishbowls/:id(\\d+)/members', (req, res) => {
       paramsForRole.push('admin');
     }
 
-    const countSql = `SELECT COUNT(*) as c FROM memberships JOIN users ON users.id = memberships.user_id WHERE memberships.community_id = ? AND users.name LIKE ? ${roleCond}`;
+    const countSql = `
+  SELECT COUNT(DISTINCT users.id) as c
+  FROM memberships
+  JOIN users ON users.id = memberships.user_id
+  WHERE memberships.community_id = ? 
+    AND users.name LIKE ? 
+    ${roleCond}
+`;
     db.get(countSql, [id, like, ...paramsForRole], (errc, rowc) => {
       if (errc) return res.status(500).send('DB error');
       const total = (rowc && rowc.c) ? rowc.c : 0;
@@ -238,7 +325,27 @@ app.get('/fishbowls/:id(\\d+)/members', (req, res) => {
       if (sort === 'name') orderBy = 'users.name COLLATE NOCASE ASC';
       if (sort === 'joined') orderBy = 'memberships.created_at DESC';
 
-      const membersSql = `SELECT memberships.id as id, users.name as name, memberships.is_admin as is_admin, memberships.role as role, memberships.created_at as created_at FROM memberships JOIN users ON users.id = memberships.user_id WHERE memberships.community_id = ? AND users.name LIKE ? ${roleCond} ORDER BY ${orderBy} LIMIT ? OFFSET ?`;
+      const membersSql = `
+  SELECT 
+    MIN(memberships.id) as id,
+    users.id as user_id,
+    users.name as name,
+    MAX(memberships.is_admin) as is_admin,
+    CASE 
+      WHEN SUM(CASE WHEN memberships.role = 'admin' THEN 1 ELSE 0 END) > 0 
+      THEN 'admin' 
+      ELSE 'member' 
+    END as role,
+    MIN(memberships.created_at) as created_at
+  FROM memberships
+  JOIN users ON users.id = memberships.user_id
+  WHERE memberships.community_id = ? 
+    AND users.name LIKE ? 
+    ${roleCond}
+  GROUP BY users.id, users.name
+  ORDER BY ${orderBy}
+  LIMIT ? OFFSET ?
+`;
       db.all(membersSql, [id, like, ...paramsForRole, PAGE_SIZE, offset], (err2, members) => {
         if (err2) return res.status(500).send('DB error');
         res.render('members', { community, members, q, page, totalPages, role: roleFilter, sort });

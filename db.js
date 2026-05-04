@@ -7,7 +7,7 @@ const db = new sqlite3.Database(dbPath);
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     password TEXT
   )`);
 

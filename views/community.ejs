@@ -1,33 +1,52 @@
-<div class="card">
-  <h2><%= community.name %></h2>
+<section class="hero-card">
+  <p class="eyebrow">Community</p>
+  <h1><%= community.name %></h1>
   <p><%= community.description %></p>
 
-  <p>
-    <a href="/fishbowls/<%= community.id %>/join">Join this Bowl</a> • <a href="/fishbowls/<%= community.id %>/new-post">Post monthly update</a>
-    <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
-      • <a href="/fishbowls/<%= community.id %>/dashboard">Manage members</a>
-    <% } %>
-    • <a href="/fishbowls/<%= community.id %>/members">View members</a>
-  </p>
-</div>
+  <div class="actions">
+    <a class="button secondary" href="/fishbowls/<%= community.id %>/join">Join community</a>
+    <a class="button secondary" href="/fishbowls/<%= community.id %>/members">View members</a>
 
-<section class="posts">
+    <% if (isAdmin) { %>
+      <a class="button" href="/fishbowls/<%= community.id %>/new-post">Post monthly update</a>
+      <a class="button secondary" href="/fishbowls/<%= community.id %>/dashboard">Manage members</a>
+    <% } %>
+  </div>
+</section>
+
+<section class="updates-feed">
+  <div class="section-heading">
+    <p class="eyebrow">Monthly Updates</p>
+    <h2>Community Feed</h2>
+  </div>
+
   <% if (Object.keys(groups).length === 0) { %>
-    <p>No updates yet. Be the first to post a monthly update.</p>
+    <div class="empty-state">
+      <h3>No updates yet</h3>
+      <p>This community has not posted a monthly update yet.</p>
+
+      <% if (isAdmin) { %>
+        <a class="button" href="/fishbowls/<%= community.id %>/new-post">Post the first update</a>
+      <% } %>
+    </div>
   <% } else { %>
     <% Object.keys(groups).forEach(label => { %>
-      <article class="month-group">
+      <div class="month-section">
         <h3><%= label %></h3>
-        <ul>
+
+        <div class="feed-list">
           <% groups[label].forEach(p => { %>
-            <li>
+            <article class="update-card">
+              <div class="update-meta">
+                <span><%= new Date(p.created_at).toLocaleDateString() %></span>
+              </div>
+
               <h4><%= p.title %></h4>
-              <div class="meta">Posted: <%= new Date(p.created_at).toLocaleString() %></div>
               <p><%= p.content %></p>
-            </li>
+            </article>
           <% }) %>
-        </ul>
-      </article>
+        </div>
+      </div>
     <% }) %>
   <% } %>
 </section>
