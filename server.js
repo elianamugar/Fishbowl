@@ -5,6 +5,8 @@ const layouts = require('express-ejs-layouts');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 
+const SITE_ADMINS = ['elianamugar'];
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -103,6 +105,16 @@ app.get('/', (req, res) => {
 app.get('/fishbowls/:id(\\d+)', (req, res) => {
   const id = req.params.id;
   const currentUserId = req.session && req.session.userId;
+
+  const isSiteAdmin = currentUser && SITE_ADMINS.includes(currentUser.name);
+
+    const isAdmin = !!(
+    isSiteAdmin ||
+    (
+        membership &&
+        (membership.is_admin === 1 || membership.role === 'admin')
+    )
+    );
 
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err) return res.status(500).send('DB error');
@@ -243,11 +255,29 @@ app.post('/fishbowls/:id(\\d+)/join', (req, res) => {
 function requireAdmin(req, res, next) {
   const id = req.params.id;
   const userId = req.session.userId;
+
   if (!userId) return res.redirect(`/login?next=/fishbowls/${id}/new-post`);
-  db.get('SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?', [userId, id], (err, row) => {
-    if (err) return res.status(500).send('DB error');
-    if (row && (row.is_admin === 1 || row.role === 'admin')) return next();
-    return res.status(403).send('Forbidden - admins only');
+
+  db.get('SELECT * FROM users WHERE id = ?', [userId], (errUser, user) => {
+    if (errUser) return res.status(500).send('DB error');
+
+    if (user && SITE_ADMINS.includes(user.name)) {
+      return next();
+    }
+
+    db.get(
+      'SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?',
+      [userId, id],
+      (err, row) => {
+        if (err) return res.status(500).send('DB error');
+
+        if (row && (row.is_admin === 1 || row.role === 'admin')) {
+          return next();
+        }
+
+        return res.status(403).send('Forbidden - admins only');
+      }
+    );
   });
 }
 
