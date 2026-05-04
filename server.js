@@ -251,7 +251,26 @@ function requireAdmin(req, res, next) {
   });
 }
 
-app.get('/fishbowls/:id(\\d+)/new-post', requireAdmin, (req, res) => {
+function requireMember(req, res, next) {
+  const id = req.params.id;
+  const userId = req.session && req.session.userId;
+
+  if (!userId) return res.redirect(`/login?next=/fishbowls/${id}/new-post`);
+
+  db.get(
+    'SELECT id FROM memberships WHERE user_id = ? AND community_id = ?',
+    [userId, id],
+    (err, row) => {
+      if (err) return res.status(500).send('DB error');
+
+      if (row) return next();
+
+      return res.status(403).send('You must join this Fishbowl before posting.');
+    }
+  );
+}
+
+app.get('/fishbowls/:id(\\d+)/new-post', requireMember, (req, res) => {
   const id = req.params.id;
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err || !community) return res.status(404).send('Bowl not found');
@@ -259,7 +278,7 @@ app.get('/fishbowls/:id(\\d+)/new-post', requireAdmin, (req, res) => {
   });
 });
 
-app.post('/fishbowls/:id(\\d+)/posts', requireAdmin, (req, res) => {
+app.post('/fishbowls/:id(\\d+)/posts', requireMember, (req, res) => {
   const id = req.params.id;
   const title = (req.body.title || '').trim();
   const content = (req.body.content || '').trim();
