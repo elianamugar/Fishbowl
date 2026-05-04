@@ -29,6 +29,7 @@ db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     community_id INTEGER,
+    user_id INTEGER,
     title TEXT,
     content TEXT,
     created_at TEXT DEFAULT (datetime('now'))
@@ -98,6 +99,18 @@ db.serialize(() => {
       });
     }
   });
+});
+
+db.all("PRAGMA table_info('posts')", (errP, colsP) => {
+  if (errP) return console.error(errP);
+
+  const hasUserId = colsP && colsP.some(c => c.name === 'user_id');
+
+  if (!hasUserId) {
+    db.run("ALTER TABLE posts ADD COLUMN user_id INTEGER", (e) => {
+      if (e) console.error('Failed to add user_id column to posts:', e);
+    });
+  }
 });
 
 module.exports = db;

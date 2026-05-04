@@ -36,13 +36,16 @@
 
         <div class="feed-list">
           <% groups[label].forEach(p => { %>
-            <article class="update-card">
-              <div class="update-meta">
-                <span><%= new Date(p.created_at).toLocaleDateString() %></span>
-              </div>
 
-              <h4><%= p.title %></h4>
-              <p><%= p.content %></p>
+            <div class="update-meta">
+            <span class="author"><%= p.author_name || 'Unknown user' %></span>
+            <span class="dot">•</span>
+            <span><%= new Date(p.created_at).toLocaleDateString() %></span>
+            </div>
+
+            #### <%= p.title %>
+
+            <%= p.content %>
             </article>
           <% }) %>
         </div>

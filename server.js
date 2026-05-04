@@ -104,7 +104,13 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
   const id = req.params.id;
   db.get('SELECT * FROM communities WHERE id = ?', [id], (err, community) => {
     if (err || !community) return res.status(404).send('Bowl not found');
-    db.all('SELECT * FROM posts WHERE community_id = ? ORDER BY created_at DESC', [id], (err2, posts) => {
+    db.all(`
+  SELECT posts.*, users.name AS author_name
+  FROM posts
+  LEFT JOIN users ON users.id = posts.user_id
+  WHERE posts.community_id = ?
+  ORDER BY posts.created_at DESC
+`, [id], (err2, posts) => {
       if (err2) return res.status(500).send('DB error');
 
       // Group posts by month-year
@@ -206,10 +212,16 @@ app.post('/fishbowls/:id(\\d+)/posts', requireAdmin, (req, res) => {
   if (!title || !content) return res.redirect(`/fishbowls/${id}/new-post`);
 
   const created_at = new Date().toISOString();
-  db.run('INSERT INTO posts (community_id, title, content, created_at) VALUES (?, ?, ?, ?)', [id, title, content, created_at], (err) => {
+  const userId = req.session.userId;
+
+db.run(
+  'INSERT INTO posts (community_id, user_id, title, content, created_at) VALUES (?, ?, ?, ?, ?)',
+  [id, userId, title, content, created_at],
+  (err) => {
     if (err) return res.status(500).send('DB error');
     res.redirect(`/fishbowls/${id}`);
-  });
+  }
+);
 });
 
 // Dashboard to manage members
