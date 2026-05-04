@@ -7,7 +7,7 @@
     <a class="button secondary" href="/fishbowls/<%= community.id %>/join">Join community</a>
     <a class="button secondary" href="/fishbowls/<%= community.id %>/members">View members</a>
 
-    <% if (isAdmin) { %>
+    <% if (currentUser) { %>
       <a class="button" href="/fishbowls/<%= community.id %>/new-post">Post monthly update</a>
       <a class="button secondary" href="/fishbowls/<%= community.id %>/dashboard">Manage members</a>
     <% } %>
