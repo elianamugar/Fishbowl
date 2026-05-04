@@ -301,17 +301,17 @@ function requireMember(req, res, next) {
   const id = req.params.id;
   const userId = req.session && req.session.userId;
 
-  if (!userId) return res.redirect(`/login?next=/fishbowls/${id}/new-post`);
+  if (!userId) {
+    return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  }
 
   db.get(
     'SELECT id FROM memberships WHERE user_id = ? AND community_id = ?',
     [userId, id],
-    (err, row) => {
+    (err, membership) => {
       if (err) return res.status(500).send('DB error');
-
-      if (row) return next();
-
-      return res.status(403).send('You must join this Fishbowl before posting.');
+      if (!membership) return res.status(403).send('You must join this Fishbowl first.');
+      next();
     }
   );
 }
