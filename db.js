@@ -35,6 +35,14 @@ db.serialize(() => {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+ )`);
+
   // Seed a couple of Fishbowls if none exist
   db.get('SELECT COUNT(*) as c FROM communities', (err, row) => {
     if (err) return console.error(err);

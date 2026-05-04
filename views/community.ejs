@@ -1,7 +1,7 @@
-<section class="hero-card">
+<section class="community-hero">
   <p class="eyebrow">Community</p>
   <h1><%= community.name %></h1>
-  <p><%= community.description %></p>
+  <p class="community-description"><%= community.description %></p>
 
   <div class="actions">
     <a class="button secondary" href="/fishbowls/<%= community.id %>/join">Join community</a>
@@ -15,7 +15,7 @@
 </section>
 
 <section class="updates-feed">
-  <div class="section-heading">
+  <div class="feed-header">
     <p class="eyebrow">Monthly Updates</p>
     <h2>Community Feed</h2>
   </div>
@@ -31,25 +31,48 @@
     </div>
   <% } else { %>
     <% Object.keys(groups).forEach(label => { %>
-      <div class="month-section">
+      <section class="month-section">
         <h3><%= label %></h3>
 
-        <div class="feed-list">
+        <div class="post-list">
           <% groups[label].forEach(p => { %>
+            <article class="post-card">
+              <div class="post-meta">
+                <span class="post-author"><%= p.author_name || 'Unknown user' %></span>
+                <span>•</span>
+                <span><%= new Date(p.created_at).toLocaleDateString() %></span>
+              </div>
 
-            <div class="update-meta">
-            <span class="author"><%= p.author_name || 'Unknown user' %></span>
-            <span class="dot">•</span>
-            <span><%= new Date(p.created_at).toLocaleDateString() %></span>
-            </div>
+              <h4><%= p.title %></h4>
+              <p><%= p.content %></p>
+              <div class="comments">
+  <h5>Comments</h5>
 
-            #### <%= p.title %>
+  <% if (p.comments && p.comments.length > 0) { %>
+    <% p.comments.forEach(comment => { %>
+      <div class="comment">
+        <strong><%= comment.commenter_name %></strong>
+        <span>• <%= new Date(comment.created_at).toLocaleDateString() %></span>
+        <p><%= comment.content %></p>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <p class="muted">No comments yet.</p>
+  <% } %>
 
-            <%= p.content %>
+  <% if (currentUser) { %>
+    <form method="POST" action="/posts/<%= p.id %>/comments" class="comment-form">
+      <textarea name="content" placeholder="Write a comment..." required></textarea>
+      <button type="submit">Comment</button>
+    </form>
+  <% } else { %>
+    <p><a href="/login">Log in</a> to comment.</p>
+  <% } %>
+</div>
             </article>
           <% }) %>
         </div>
-      </div>
+      </section>
     <% }) %>
   <% } %>
 </section>

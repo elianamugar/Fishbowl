@@ -111,21 +111,58 @@ app.get('/fishbowls/:id(\\d+)', (req, res) => {
   WHERE posts.community_id = ?
   ORDER BY posts.created_at DESC
 `, [id], (err2, posts) => {
+    const postIds = posts.map(p => p.id);
+
+if (postIds.length === 0) {
+  return continueRender(posts, isAdmin);
+}
+
+const placeholders = postIds.map(() => '?').join(',');
+
+db.all(`
+  SELECT comments.*, users.name AS commenter_name
+  FROM comments
+  JOIN users ON users.id = comments.user_id
+  WHERE comments.post_id IN (${placeholders})
+  ORDER BY comments.created_at ASC
+`, postIds, (err3, comments) => {
+  if (err3) return res.status(500).send('DB error');
+
+  posts.forEach(post => {
+    post.comments = comments.filter(c => c.post_id === post.id);
+  });
+
+  continueRender(posts, isAdmin);
+});
       if (err2) return res.status(500).send('DB error');
 
       // Group posts by month-year
-      const groups = {};
-      posts.forEach(p => {
-        const d = new Date(p.created_at);
-        const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-        if (!groups[label]) groups[label] = [];
-        groups[label].push(p);
-      });
+      function continueRender(posts, isAdmin) {
+
+  const groups = {};
+
+  posts.forEach(p => {
+    const label = new Date(p.created_at).toLocaleString('default', {
+      month: 'long',
+      year: 'numeric'
+    });
+
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(p);
+  });
+
+  res.render('community', {
+    community,
+    groups,
+    isAdmin,
+    currentUser: req.session.userId
+  });
+}
 
       // find membership for current user to know if admin
       const currentUserId = req.session && req.session.userId;
       if (!currentUserId) {
-        return res.render('community', { community, groups, isAdmin: false });
+        return continueRender(posts, isAdmin);
       }
       db.get('SELECT is_admin, role FROM memberships WHERE user_id = ? AND community_id = ?', [currentUserId, id], (err3, row3) => {
         if (err3) return res.status(500).send('DB error');
