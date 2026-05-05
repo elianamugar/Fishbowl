@@ -312,13 +312,19 @@ app.get('/fishbowls/:identifier', (req, res) => {
 
           const isMember = !!membership || isSiteAdmin;
 
-          db.all(`
-            SELECT posts.*, users.name AS author_name
+          db.all(
+            `
+            SELECT posts.*, users.name AS author_name,
+                  COUNT(post_likes.id) AS like_count
             FROM posts
             LEFT JOIN users ON users.id = posts.user_id
+            LEFT JOIN post_likes ON post_likes.post_id = posts.id
             WHERE posts.community_id = ?
+            GROUP BY posts.id
             ORDER BY posts.created_at DESC
-          `, [id], (errPosts, posts) => {
+            `,
+            [id],
+            (errPosts, posts) => {
             if (errPosts) return res.status(500).send('DB error');
 
             function renderCommunity() {
@@ -400,7 +406,7 @@ app.post('/posts/:postId/comments', (req, res) => {
   if (!userId) return res.redirect('/login');
   if (!content) return res.redirect('back');
 
-  db.get('SELECT community_id FROM posts WHERE id = ?', [postId], (err, post) => {
+  db.get('SELECT user_id, community_id FROM posts WHERE id = ?', [postId], (err, post) => {
     if (err) return res.status(500).send('DB error');
     if (!post) return res.status(404).send('Post not found');
 
@@ -415,7 +421,34 @@ app.post('/posts/:postId/comments', (req, res) => {
           return res.status(500).send('DB error');
         }
 
+        (err2) => {
+  if (err2) {
+    console.error(err2);
+    return res.status(500).send('DB error');
+  }
+
+  if (post.user_id !== userId) {
+    db.run(
+      `INSERT INTO notifications
+       (user_id, actor_id, community_id, post_id, type, message)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        post.user_id,
+        userId,
+        post.community_id,
+        postId,
+        'reply',
+        'Someone replied to your post.'
+      ],
+      (errNotify) => {
+        if (errNotify) console.error(errNotify);
         redirectToCommunity(req, res, post.community_id);
+      }
+    );
+  } else {
+    redirectToCommunity(req, res, post.community_id);
+  }
+}
       }
     );
   });
@@ -874,6 +907,38 @@ app.get('/__routes', (req, res) => {
     }
   });
   res.json({ routes });
+});
+
+app.post('/posts/:postId/like', (req, res) => {
+  const postId = req.params.postId;
+  const userId = req.session && req.session.userId;
+
+  if (!userId) return res.redirect('/login');
+
+  db.get('SELECT community_id FROM posts WHERE id = ?', [postId], (err, post) => {
+    if (err) return res.status(500).send('DB error');
+    if (!post) return res.status(404).send('Post not found');
+
+    db.get(
+      'SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?',
+      [postId, userId],
+      (errLike, existing) => {
+        if (errLike) return res.status(500).send('DB error');
+
+        const done = () => redirectToCommunity(req, res, post.community_id);
+
+        if (existing) {
+          return db.run('DELETE FROM post_likes WHERE id = ?', [existing.id], done);
+        }
+
+        db.run(
+          'INSERT INTO post_likes (post_id, user_id) VALUES (?, ?)',
+          [postId, userId],
+          done
+        );
+      }
+    );
+  });
 });
 
 app.listen(PORT, () => {

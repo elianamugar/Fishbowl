@@ -52,6 +52,27 @@ db.serialize(() => {
     created_at TEXT DEFAULT (datetime('now'))
  )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS post_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE(post_id, user_id)
+ )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    actor_id INTEGER NOT NULL,
+    community_id INTEGER,
+    post_id INTEGER,
+    comment_id INTEGER,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+ )`);
+
   // Seed a couple of Fishbowls if none exist
   db.get('SELECT COUNT(*) as c FROM communities', (err, row) => {
     if (err) return console.error(err);

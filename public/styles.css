@@ -6,6 +6,28 @@
 	--card:#ffffff;
 }
 
+.about {
+  padding: 32px;
+  margin-bottom: 36px;
+  border-radius: 20px;
+
+  background: white;
+  border: 1px solid rgba(0,0,0,0.08);
+
+  box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+}
+
+.about h1 {
+  font-size: 42px;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.about p {
+  font-size: 18px;
+  color: #475569;
+}
+
 body {
     background: var(--bg);
     color: var(--text);
@@ -273,22 +295,25 @@ body.dark .danger-zone {
   gap: 16px;
 }
 
+
 .post-card {
-  background: var(--card);
-  border: 1px solid rgba(15, 23, 32, 0.08);
+  background: white;
   border-radius: 20px;
-  padding: 22px;
-  box-shadow: 0 10px 26px rgba(15, 23, 32, 0.05);
+  padding: 24px;
+  margin-bottom: 24px;
+
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.post-card h3 {
+  font-size: 24px;
+  margin-bottom: 6px;
 }
 
 .post-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin-bottom: 8px;
+  font-size: 14px;
+  color: #64748b;
 }
 
 .post-author {
@@ -296,18 +321,6 @@ body.dark .danger-zone {
   font-weight: 800;
 }
 
-.post-card h4 {
-  margin: 0 0 10px;
-  font-size: 1.35rem;
-  line-height: 1.2;
-}
-
-.post-card p {
-  margin: 0;
-  color: inherit;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
 
 body[data-theme='dark'] .post-card,
 body[data-theme='dark'] .community-hero,
@@ -327,10 +340,14 @@ body[data-theme='dark'] .button.secondary {
 }
 
 .comment {
-  margin: 10px 0;
-  padding: 10px 12px;
+  background: #f8fafc;
+  padding: 12px;
   border-radius: 12px;
-  background: rgba(120,120,120,0.1);
+  margin-top: 10px;
+}
+
+.comment p {
+  margin: 4px 0;
 }
 
 .comment strong {
@@ -403,4 +420,172 @@ body[data-theme='dark'] .button.secondary {
   display: flex;
   gap: 8px;
   margin-top: 6px;
+}
+
+/* Fishbowl UX polish: clean personal-site feel + goldfish bowl palette */
+
+:root {
+  --bg: #fffaf3;
+  --card: #ffffff;
+  --text: #17324d;
+  --muted: #64748b;
+  --accent: #1d75bd;
+  --accent-2: #f59e0b;
+  --border: rgba(23, 50, 77, 0.12);
+}
+
+body.dark {
+  --bg: #071827;
+  --card: #0f2436;
+  --text: #eef7ff;
+  --muted: #a7bdd1;
+  --accent: #65b7ff;
+  --accent-2: #fbbf24;
+  --border: rgba(238, 247, 255, 0.12);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+}
+
+/* Headings = slightly more personality */
+h1, h2, h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+p {
+  color: #475569;
+  max-width: 65ch;
+}
+
+main,
+.container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+h1, h2, h3, h4 {
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  letter-spacing: -0.03em;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 7vw, 4.8rem);
+  line-height: 0.95;
+}
+
+.about,
+.community-hero,
+.post-card,
+.empty-state,
+.hero-card {
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: 0 18px 45px rgba(23, 50, 77, 0.08);
+}
+
+.about {
+  padding: 34px;
+  margin-bottom: 34px;
+}
+
+.about p,
+.community-description,
+.post-card p,
+.comment p {
+  color: var(--text);
+}
+
+.eyebrow {
+  color: var(--accent-2);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.button, button {
+  border-radius: 999px;
+  padding: 10px 16px;
+
+  background: #1d75bd;
+  color: white;
+
+  font-weight: 600;
+  border: none;
+
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.button:hover, button:hover {
+  transform: translateY(-1px);
+  background: #155e9b;
+}
+
+.button.secondary {
+  background: rgba(29, 117, 189, 0.1);
+  color: #1d75bd;
+}
+
+.danger-button {
+  background: #dc2626;
+}
+
+.post-card {
+  padding: 26px;
+}
+
+.post-meta,
+.comment-meta,
+.update-meta {
+  color: var(--muted);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.9rem;
+}
+
+.comment {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+.comment p {
+  margin: 4px 0;
+}
+
+input,
+textarea {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+
+input:focus,
+textarea:focus {
+  outline: 3px solid rgba(245, 158, 11, 0.25);
+  border-color: var(--accent-2);
+}
+
+body {
+  font-family: Georgia, "Times New Roman", serif !important;
+  background: #fffaf3 !important;
+  color: #17324d !important;
+}
+
+/* center everything */
+main, .container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 20px;
 }

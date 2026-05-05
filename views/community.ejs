@@ -54,6 +54,9 @@
   <a class="button secondary" href="/posts/<%= p.id %>/edit">Edit post</a>
 <% } %>
               </div>
+              <form method="POST" action="/posts/<%= p.id %>/like">
+  <button type="submit">▲ <%= p.like_count || 0 %></button>
+</form>
 
               <h4><%= p.title %></h4>
               <p><%= p.content %></p>
