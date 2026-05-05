@@ -247,12 +247,6 @@ body.dark .danger-zone {
   margin: 0 0 10px;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .button {
   display: inline-block;
   background: var(--accent);
@@ -547,8 +541,13 @@ h2 {
 }
 
 .button.secondary {
-  background: rgba(29, 117, 189, 0.1);
+  background: rgba(29, 117, 189, 0.14);
   color: #1d75bd;
+  font-weight: 700;
+}
+
+.button.secondary:hover {
+  background: rgba(29, 117, 189, 0.22);
 }
 
 .danger-button {
@@ -638,7 +637,7 @@ a:hover {
 
 /* Visited (this is the harsh one) */
 a:visited {
-  color: var(--accent);
+  color: inherit;
 }
 
 /* Active (clicking) */
@@ -769,4 +768,13 @@ body[data-theme='dark'] .card label,
 
 .card button {
   margin-top: 18px;
+}
+
+.actions .button.secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  padding: 10px 18px;
+  font-family: 'Satoshi', sans-serif;
+  font-weight: 700;
 }
