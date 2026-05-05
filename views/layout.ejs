@@ -1,6 +1,8 @@
 <!doctype html>
 <html>
   <head>
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title><%= (typeof title !== 'undefined' ? title : 'Fishbowls') %></title>
@@ -54,7 +56,11 @@
           document.body.removeAttribute('data-theme');
           document.documentElement.removeAttribute('data-theme');
           document.querySelector('header')?.removeAttribute('data-theme');
-          document.getElementById('theme-toggle').textContent = '🌙';
+          const btn = document.getElementById('themeToggle');
+
+if (btn) {
+  btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
         }
       }
       applyTheme(current);
@@ -65,4 +71,5 @@
       });
     })();
   </script>
+  
 </html>
