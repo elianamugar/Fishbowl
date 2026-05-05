@@ -49,7 +49,7 @@
               <div class="post-meta">
                 <span class="post-author"><%= p.author_name || 'Unknown user' %></span>
                 <span>•</span>
-                <span><%= new Date(p.created_at.includes('T') ? p.created_at : p.created_at + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+                <span class="local-time" data-time="<%= p.created_at %>"><%= p.created_at %></span>
                 <% if (currentUser && (currentUser.id === p.user_id || isAdmin)) { %>
   <a class="button secondary" href="/posts/<%= p.id %>/edit">Edit post</a>
 <% } %>
@@ -73,7 +73,7 @@
     <% p.comments.forEach(comment => { %>
       <div class="comment">
         <strong><%= comment.commenter_name %></strong>
-        <span><%= new Date(comment.created_at.includes('T') ? comment.created_at : comment.created_at + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) %></span>
+        <span class="local-time" data-time="<%= comment.created_at %>"><%= comment.created_at %></span>
         <p><%= comment.content %></p>
         <% if (currentUser && (currentUser.id === comment.user_id || isAdmin)) { %>
   <form
@@ -108,4 +108,18 @@
       </section>
     <% }) %>
   <% } %>
+
+<script>
+  document.querySelectorAll('.local-time').forEach((el) => {
+    const raw = el.dataset.time;
+
+    const safeTime = raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z';
+
+    el.textContent = new Date(safeTime).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+  });
+</script>
+
 </section>
